@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+audiodiff-venv/
+venv/
+python-environments/
+environments/
+envs/
+
+# Data and models
+/datasets/
+/weights/
+
+# Outputs
+/experiments/
+/outputs/*.wav
+#*.wav
+*.ckpt
+*.pt

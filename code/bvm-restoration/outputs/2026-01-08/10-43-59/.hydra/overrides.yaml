@@ -1,0 +1,5 @@
+- testing.folder=/home/leonardo.barreto/Documents/pesquisa/mestrado/audio-examples
+- testing.panel=1
+- device=cuda:0
+- inference.use_gain=True
+- inference.use_range=False

@@ -1,0 +1,6 @@
+- noisy_audio=../audio-examples/source_Midsum.wav
+- output_file=../audio-examples/out_Midsum.wav
+- device=cuda:0
+- inference.xi=0.35
+- inference.use_gain=True
+- inference.use_range=False

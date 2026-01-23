@@ -1,0 +1,184 @@
+defaults:
+  - dset: maestro
+
+wandb:
+  entity: "eloimoliner"
+  project: "CQTDiff"
+  run_name: "testing_training_code"
+
+model_dir: "experiments/44100-adjusted-lr"
+
+architecture: "unet_CQT" #"unet"
+
+sample_rate: 44100
+audio_len: 66150
+resample_factor: 1
+
+
+#training functionality parameters
+num_workers: 4 #useful to speed up the dataloader
+device: "cpu" #it will be updated in the code, no worries
+
+
+sashimi:
+  unconditional: False
+  in_channels: 1
+  out_channels: 2
+  diffusion_step_embed_dim_in: 128
+  diffusion_step_embed_dim_mid: 512
+  diffusion_step_embed_dim_out: 512
+  unet: true
+  d_model: 64
+  n_layers: 6
+  pool: [4, 4]
+  expand: 2
+  ff: 2
+  L: ${audio_len} # Truncates infinite kernel to length of training inputs
+
+  
+
+#pre-emph
+stft:
+  win_size: 1024
+  hop_size: 256
+  model:
+    win_size: 1024
+    hop_size: 256
+
+cqt:
+  binsoct: 64 #important
+  numocts: 7  #important
+  fmax: "nyq" # not used
+  fmin: 150 #no worries, not used
+  use_norm: False
+
+unet:
+## Model params
+  padding: "zeros" #or "circular" or others see nn.Convd1 documentation
+  use_attention: True
+  num_att_heads: 4
+  use_gru: True
+  conditioner:
+   use_conditioning: True
+  
+save_model: True
+
+unet_STFT:
+  use_embedding_y_lpf: False
+  use_attention: False
+  depth: 5
+  use_fencoding: True
+  nlayers: [8,7,6,5,4,3]
+
+#
+lr: 2e-4 #used
+#schedule_sampler: "uniform"
+#weight_decay: 0.0
+#lr_anneal_steps: 0
+batch_size: 1 # default 4
+
+#ema_rate: "0.9999"  # comma-separated list of EMA values
+ema_rate: 0.9999  
+
+#for lr scheduler (not noise schedule!!)
+scheduler_step_size: 480000 # should be 480 000 for smaller params
+scheduler_gamma: 0.8
+
+restore : True
+checkpoint_id: 2816021
+
+#logging params
+log: False # WandB log --> default True
+log_interval: 1000
+save_interval: 85334 # default 10000 - 85334 for retrain
+#
+#Monitoring  (number of windows for plotting loss dependent on sigma)
+n_bins: 20
+#
+#
+
+inference:
+  mode: "unconditional" #"inpainting", "bandwidth_extension" ,"declipping", "phase_retrieval", "comp_sens", "melspec_inversion"
+  load:
+    load_mode: "from_directory" # "maestro_test" or "from_directory"
+    audio: None
+    data_directory: None
+    seg_size: None
+    seg_idx: 0
+  checkpoint:  "weights-2303999.pt"
+  exp_name: "testing"
+  T: 140 #number of discretizatio steprs - default 35, use 140 for declipping
+  num_sample_chunks: 1
+  unconditional:
+    num_samples: 1
+  xi: 0.35 #restoration guidance, 0 means no guidance -- no default given, use 0.35 for declipping
+  data_consistency: False # default True, False for declipping
+  sampler: "deterministic" #wether deterministic or stochastic
+  noise_in_observations_SNR: None
+  bandwidth_extension:
+    decimate:
+      factor: 1
+    filter:
+      type: "firwin" #or "cheby1_fir"
+      fc: 1000 #cutoff frequency of the applied lpf
+      order: 200
+      fir_order: 600
+      beta: 1
+      ripple: 0.05 #for the cheby1
+      resample:
+        fs: 2000
+      biquad:
+        Q: 0.707
+  inpainting:
+    gap_length: 1500 #in ms
+    start_gap_idx: None #in ms, None means at the middle
+  comp_sens: 
+    percentage: 5 #%
+  phase_retrieval:
+    win_size: 1024
+    hop_size: 256
+  max_thresh_grads: 1
+  type_spec: "linear" #or "mel" for phase retrieval
+  declipping:
+    SDR: 3 #in dB - default 3
+    clip_value: 0.4762189261551125
+  denoising:
+    noise_files_path: "/home/bernardo.miranda/Documents/pesquisa/datasets/base-ruidos-gramofone/fade-500ms-middle-1600ms"
+    noise_file: "/home/bernardo.miranda/Documents/pesquisa/dissertacao/artigos-moliner/cqt-diff/experiments/denoising/block-restoration/SNR_10dB/normalized_all_78_1-the-secret-2-old-chanticleer-3-the-hungry-windmill_elizabeth-wheeler-anice-ter_gbia0058565b_segment-04.wav"
+    crossfade_duration: 0.1
+    noise_gain: 0.000911591574549675
+
+extra_info: "no extra info" 
+
+sde_type: 'VE_elucidating'
+
+diffusion_parameters:
+  sigma_data: 0.057 #default for maestro
+  sigma_min: 1e-6
+  sigma_max: 10
+  P_mean: -1.2 #what is this for? - log normal distribution in Karras et al. training
+  P_std: 1.2 #ehat is this for? - log normal distribution in Karras et al. training
+  ro: 13
+  ro_train: 10
+  Schurn: 5
+  Snoise: 1
+  Stmin: 0
+  Stmax: 50
+ 
+sde_kwargs:
+  gamma: None
+  eta: None
+  sigma_min: 1e-4
+  sigma_max: 1
+
+     
+hydra:
+  job:
+    config:
+      # configuration for the ${hydra.job.override_dirname} runtime variable
+      override_dirname:
+        kv_sep: '='
+        item_sep: ','
+        # Remove all paths, as the / in them would mess up things
+        exclude_keys: ['path_experiment',
+          'hydra.job_logging.handles.file.filename']
