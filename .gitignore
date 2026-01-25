@@ -14,7 +14,7 @@ envs/
 /weights/
 
 # Outputs
-/experiments/
+experiments/
 /outputs/*.wav
 #*.wav
 *.ckpt

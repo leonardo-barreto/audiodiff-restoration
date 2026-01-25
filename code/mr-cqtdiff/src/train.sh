@@ -2,19 +2,16 @@
 
 export HYDRA_FULL_ERROR=1 
 
-module load mamba
-source activate /scratch/work/molinee2/conda_envs/env2024
+#module load mamba
+#source activate /scratch/work/molinee2/conda_envs/env2024
+source /home/leonardo.barreto/Documents/pesquisa/mestrado/audiodiff-venv/bin/activate
 
 # main config
-conf=conf_FMA.yaml
+#conf=conf_FMA.yaml
+conf=conf_MAESTRO.yaml
 
-n="train_example"
-
-PATH_EXPERIMENT=experiments/$n
-mkdir -p $PATH_EXPERIMENT
-
-#network="MR-cqtdiff_44k"
-network="ncsnpp_44k"
+network="MR-cqtdiff_44k"
+#network="ncsnpp_44k"
 #network="cqtdiff+_44k"
 
 python train.py --config-name=$conf \

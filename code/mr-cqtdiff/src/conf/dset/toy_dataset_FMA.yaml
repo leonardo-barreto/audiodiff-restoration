@@ -1,5 +1,6 @@
 train:
   _target_: "datasets.toy_dataset.ToyDataset"
   fs: 44100
-  load_len: 262144
-  path: "../samples/FMA/reference"
+  #load_len: 262144
+  load_len: 65536
+  path: "/home/leonardo.barreto/Documents/pesquisa/mestrado/audiodiff-restoration-project/datasets/reference"

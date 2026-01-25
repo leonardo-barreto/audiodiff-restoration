@@ -19,7 +19,7 @@ F_bins_per_oct: [8, 8, 8, 16, 16, 16, 16, 32, 32 ]
 
 num_dils: [2, 2, 3, 4, 5, 5, 4, 5, 5] # Start at 4 to match the original config for 3 octaves
 sample_rate: 44100
-audio_len: 262144
+audio_len: 65536
 
 cqt:
     window: "hann"

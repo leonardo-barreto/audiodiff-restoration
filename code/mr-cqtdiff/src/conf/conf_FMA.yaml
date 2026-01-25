@@ -1,7 +1,7 @@
 defaults:
   - _self_
   - dset: toy_dataset_FMA
-  - network: HD-cqtdiff+_44k
+  - network: MR-cqtdiff_44k
   - diff_params: edm
   - tester: unconditional
   - exp: 44kHz_6s
