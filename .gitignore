@@ -3,9 +3,8 @@ __pycache__/
 *.pyc
 
 # Virtual environments
-audiodiff-venv/
-venv/
-python-environments/
+/python-envs/
+venv*/
 environments/
 envs/
 
@@ -15,6 +14,7 @@ envs/
 
 # Outputs
 experiments/
+outputs/
 /outputs/*.wav
 #*.wav
 *.ckpt

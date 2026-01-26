@@ -4,7 +4,7 @@ defaults:
   - network: MR-cqtdiff_44k
   - diff_params: edm
   - tester: unconditional
-  - exp: 44kHz_1_5s
+  - exp: train_check
   - logging: maestro_train_logging
 
 model_dir: "experiments/MR-cqtdiff_44k_1_5s_maestro"

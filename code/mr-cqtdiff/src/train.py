@@ -5,6 +5,7 @@ import hydra
 import torch
 
 import time
+from tqdm import tqdm
 import copy
 import numpy as np
 from glob import glob
@@ -248,7 +249,7 @@ class Trainer():
 
     def train_step(self):
         '''Training step'''
-        a = time.time()
+        #a = time.time()
 
         self.optimizer.zero_grad()
 
@@ -268,7 +269,8 @@ class Trainer():
             # Update weights.
             self.optimizer.step()
 
-            print("loss", loss.item(), "time", time.time() - a)
+            #print("loss", loss.item(), "time", time.time() - a)
+            tqdm.write(f"loss {loss.item():.6f}")
 
             if self.args.logging.log:
                 self.process_loss_for_logging(error, sigma)
@@ -336,8 +338,11 @@ class Trainer():
 
     def training_loop(self):
 
-        while True:
-            #print(f"Iteration: {self.it}")
+        #while True:
+        for _ in tqdm(range(self.it, self.args.exp.max_iters),
+                      initial=self.it,
+                      total=self.args.exp.max_iters,
+                      desc="Training iterations"):
             self.train_step()
             self.update_ema()
 
@@ -352,11 +357,11 @@ class Trainer():
 
             # Update state.
             self.it += 1
-            try:
+            """ try:
                 if self.it > self.args.exp.max_iters:
                     break
             except:
-                pass
+                pass """
 
 
 def _main(args):
