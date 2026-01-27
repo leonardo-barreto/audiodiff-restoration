@@ -95,6 +95,8 @@ class Tester():
         print(f"loading checkpoint {self.it}")
         return tr_utils.load_state_dict(state_dict, ema=self.network)
 
+    # ------------- LOGGING AND SAVING PARAMS ---------------#
+
     def log_audio(self, pred, name: str):
         if self.use_wandb:
             print(pred.shape)
@@ -108,13 +110,35 @@ class Tester():
 
             if self.args.logging.log_spectrograms:
                 raise NotImplementedError
+    
+    def prepare_directories(self, mode, unconditional=False, blind=False, string=None):
+
+        today = date.today()
+        self.paths = {}
+        if "overriden_name" in self.args.tester.keys() and self.args.tester.overriden_name is not None:
+            self.path_sampling = os.path.join(self.args.model_dir, self.args.tester.overriden_name)
+        else:
+            self.path_sampling = os.path.join(self.args.model_dir, 'test' + today.strftime("%d_%m_%Y"))
+        if not os.path.exists(self.path_sampling):
+            os.makedirs(self.path_sampling)
+
+        self.paths[mode] = os.path.join(self.path_sampling, mode, self.args.exp.exp_name)
+
+        if not os.path.exists(self.paths[mode]):
+            os.makedirs(self.paths[mode])
+        if string is None:
+            string = ""
+
+    def save_experiment_args(self, mode):
+        with open(os.path.join(self.paths[mode], ".argv"),
+                  'w') as f:  # Keep track of the arguments we used for this experiment
+            omegaconf.OmegaConf.save(config=self.args, f=f.name)
 
     # ------------- UNCONDITIONAL SAMPLING ---------------#
 
     ##############################
     ### UNCONDITIONAL SAMPLING ###
     ##############################
-
 
     def sample_unconditional(self, mode):
         # the audio length is specified in the args.exp, doesnt depend on the tester --> well should probably change that
@@ -137,33 +161,6 @@ class Tester():
                                                                         path=self.paths["unconditional"])
 
         return preds
-
-            
-
-
-    def prepare_directories(self, mode, unconditional=False, blind=False, string=None):
-
-        today = date.today()
-        self.paths = {}
-        if "overriden_name" in self.args.tester.keys() and self.args.tester.overriden_name is not None:
-            self.path_sampling = os.path.join(self.args.model_dir, self.args.tester.overriden_name)
-        else:
-            self.path_sampling = os.path.join(self.args.model_dir, 'test' + today.strftime("%d_%m_%Y"))
-        if not os.path.exists(self.path_sampling):
-            os.makedirs(self.path_sampling)
-
-        self.paths[mode] = os.path.join(self.path_sampling, mode, self.args.exp.exp_name)
-
-        if not os.path.exists(self.paths[mode]):
-            os.makedirs(self.paths[mode])
-        if string is None:
-            string = ""
-
-
-    def save_experiment_args(self, mode):
-        with open(os.path.join(self.paths[mode], ".argv"),
-                  'w') as f:  # Keep track of the arguments we used for this experiment
-            omegaconf.OmegaConf.save(config=self.args, f=f.name)
 
     def do_test(self, it=0):
 

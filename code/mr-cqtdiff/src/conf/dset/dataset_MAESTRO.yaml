@@ -2,5 +2,7 @@ train:
   _target_: "datasets.maestro_dataset.MaestroDataset"
   fs: 44100
   load_len: 65536
+  #load_len: 131072
+  #load_len: 262144
   seg_per_file: 8
   path: "/home/leonardo.barreto/Documents/pesquisa/mestrado/audiodiff-restoration-project/datasets/maestro-v3.0.0"

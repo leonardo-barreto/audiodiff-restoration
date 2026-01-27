@@ -1,0 +1,70 @@
+#Training configuration file
+exp_name: "len_1_5_bat_5_3090" #name of the experiment
+
+model_dir: None #directory where the model will be saved locally
+
+#--------------
+# Optimization
+# -------------
+optimizer:
+  _target_: "torch.optim.Adam"
+  lr: 1e-4 #            help='Learning rate',
+  betas: [0.9, 0.999]
+  eps: 1e-8 #for numerical stability, we may need to modify it if usinf fp16
+  
+lr_rampup_it: 10000 #,  help='Learning rate rampup duration'
+
+# Performance-related.
+num_workers: 4  #',       help='DataLoader worker processes', metavar='INT',                 type=click.IntRange(min=1), default=1, show_default=True)
+
+# -----------
+# Audio Data
+# -----------
+sample_rate: 44100
+audio_len: 65536
+#audio_len: 131072
+#audio_len: 262144
+
+# ====================
+# Training iterations
+# ====================
+# Moliner (CQTDiff)             = 3,280,000s of audio (3s   x 4 per batch x   320,000 iterations)
+# Bernardo (CQTDiff-MAESTRO)    = 3,280,000s of audio (1.5s x 1 per batch x 2,560,000 iterations)
+# MR-CQTDiff-MAESTRO            = 3,280,000s of audio (1.5s x 2 per batch x 1,280,000 iterations)
+# MR-CQTDiff-MAESTRO (RTX 3090) = 3,280,000s of audio (1.5s x 5 per batch x   437,333 iterations)
+
+#batch_size: 2
+#max_iters: 1280000
+batch_size: 5
+max_iters: 440000
+
+#----------------
+# EMA of weights
+#----------------
+ema_rate: 0.9999
+
+# Audio duration during ramp-up = ema_rampup * (load_len*batch_size)
+# Defaults by Moliner          : 10000 * (6*4)  = 240000 (ema_rampup = 10000)
+# MR-CQTDiff-MAESTRO           : 80000 * (1.5*2)= 240000 (ema_rampup = 80000)
+# MR-CQTDiff-MAESTRO (RTX 3090): 32000 * (1.5*5)= 240000 (ema_rampup = 32000)
+
+#ema_rampup: 80000  #1.5s and batch_size = 2
+ema_rampup: 32000  #1.5s and batch_size = 5
+
+# ------------------------------
+# I/O-related. Moved to logging
+# ------------------------------
+seed: 42 # random seed
+
+# Resume from checkpoint
+resume: False
+resume_checkpoint: None
+
+#gradient clipping
+use_grad_clip: True
+max_grad_norm: 1
+
+restore : False
+checkpoint_id: None
+
+

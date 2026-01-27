@@ -102,7 +102,10 @@ class Trainer():
             self.args, resolve=True, throw_on_missing=True
         )
         config["total_params"] = self.total_params
-        self.wandb_run = wandb.init(project=self.args.logging.wandb.project, config=config, dir=self.args.model_dir)
+        #self.wandb_run = wandb.init(project=self.args.logging.wandb.project, config=config, dir=self.args.model_dir)
+        self.wandb_run = wandb.init(entity=self.args.logging.wandb.entity, 
+                                    project=self.args.logging.wandb.project, 
+                                    config=config, dir=self.args.model_dir)
         wandb.watch(self.network, log="all",
                     log_freq=self.args.logging.heavy_log_interval)  # wanb.watch is used to log the gradients and parameters of the model to wandb. And it is used to log the model architecture and the model summary and the model graph and the model weights and the model hyperparameters and the model performance metrics.
         self.wandb_run.name = os.path.basename(
@@ -376,6 +379,7 @@ def _main(args):
         os.makedirs(args.model_dir)
 
     args.exp.model_dir = args.model_dir
+    #args.exp.model_dir = os.path.join(str(args.model_dir), str(args.exp.model_dir))
 
     train_set = hydra.utils.instantiate(args.dset.train)
     

@@ -4,10 +4,10 @@ defaults:
   - network: MR-cqtdiff_44k
   - diff_params: edm
   - tester: unconditional
-  - exp: train_check
+  - exp: 44kHz_1_5s
   - logging: maestro_train_logging
 
-model_dir: "experiments/MR-cqtdiff_44k_1_5s_maestro"
+model_dir: "experiments/MR-CQTDiff_44k_MAESTRO"
 
 hydra:
   job:

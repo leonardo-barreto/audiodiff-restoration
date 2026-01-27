@@ -34,8 +34,8 @@ sampling_params:
 
 unconditional:
   num_samples: 1
-  batch_size: 4
-  audio_len: 262144
+  #batch_size: 4
+  #audio_len: 65536
 
 wandb:
   use: False
