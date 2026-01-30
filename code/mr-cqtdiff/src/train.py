@@ -45,6 +45,13 @@ class Trainer():
         self.tester = tester
         self.tester.use_wandb = False  # We do not want to interfere with the training wandb, as we do the logging in Trainer() and not in Tester()
         self.optimizer = hydra.utils.instantiate(args.exp.optimizer, params=network.parameters())
+
+        # LR Scheduler added by Leonardo Barreto
+        self.lr_scheduler = hydra.utils.instantiate(args.exp.lr_scheduler,
+                                                    optimizer=self.optimizer,
+                                                    step_size=self.args.exp.lr_scheduler.step_size,
+                                                    gamma=self.args.exp.lr_scheduler.gamma)
+
         self.ema = copy.deepcopy(self.network).eval().requires_grad_(False)
 
         # Torch settings
@@ -272,8 +279,11 @@ class Trainer():
             # Update weights.
             self.optimizer.step()
 
-            #print("loss", loss.item(), "time", time.time() - a)
-            tqdm.write(f"loss {loss.item():.6f}")
+            # LR Scheduler added by Leonardo Barreto
+            self.lr_scheduler.step()
+
+            #tqdm.write(f"lr = {self.lr_scheduler.get_last_lr()}")
+            #tqdm.write(f"loss {loss.item():.6f}")
 
             if self.args.logging.log:
                 self.process_loss_for_logging(error, sigma)

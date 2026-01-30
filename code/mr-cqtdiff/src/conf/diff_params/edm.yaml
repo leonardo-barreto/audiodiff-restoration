@@ -8,7 +8,7 @@ _target_: "diff_params.edm.EDM"
 type: "ve_karras"
 sde_hp:
   sigma_data: 0.063 #default for maestro
-  sigma_min: 1e-5
+  sigma_min: 1e-6 # mrcqtdiff default = 1e-5
   sigma_max: 10
-  rho: 12
+  rho: 10 # mrcqtdiff default = 12
   max_sigma: 10
