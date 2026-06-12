@@ -1,38 +1,27 @@
 #!/bin/bash
 
-module load mamba
-source activate /scratch/work/molinee2/conda_envs/env2024  
+source /home/leonardo.barreto/Documents/pesquisa/mestrado/audiodiff-restoration-project/python-envs/venv-mrcqtdiff/bin/activate
 
+#test_script=test_unconditional.py
+test_script=test_conditional.py
 
-conf=conf_OpenSinger.yaml
+conf=conf_SamplerTesting.yaml
 
-tester=unconditional
-
-n="test"
-
-PATH_EXPERIMENT=experiments/$n
-
+name="MR-CQTDiff_44k_MAESTRO"
+PATH_EXPERIMENT=experiments/$name
 
 #choose model and dataset
-
-#network=MR-cqtdiff+_44k
-#ckpt="../checkpoints/OpenSinger_MRcqtdiff_500k.pt"
-#ckpt="../checkpoints/FMA_MRcqtdiff_500k.pt"
-
-network=ncsnpp_44k
-ckpt="../checkpoints/OpenSinger_MRcqtdiff_500k.pt"
-#ckpt="../checkpoints/FMA_MRcqtdiff_500k.pt"
-
-#network=cqtdiff+_44k
-#ckpt="../checkpoints/OpenSinger_MRcqtdiff_500k.pt"
-#ckpt="../checkpoints/FMA_MRcqtdiff_500k.pt"
+network=MR-cqtdiff_44k
+ckpt="experiments/MR-CQTDiff_44k_MAESTRO/len1_5-bat5-lr2-sched2_3-diffBern-3090-1600000.pt"
 
 
 mkdir -p $PATH_EXPERIMENT
 
-python test_unconditional.py --config-name=$conf \
+python $test_script --config-name=$conf \
   model_dir=$PATH_EXPERIMENT \
-  tester=$tester \
   tester.checkpoint=$ckpt \
-  tester.overriden_name="2D_OpenSinger_HD_CQT_waveform_IS2_100k_v2" \
-  tester.unconditional.num_samples=4 \
+  #tester.unconditional.num_samples=1 \
+  #tester.overriden_name="2D_OpenSinger_HD_CQT_waveform_IS2_100k_v2" \
+
+
+

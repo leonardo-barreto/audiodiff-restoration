@@ -64,7 +64,7 @@ def _main(args):
     tester.do_test()
 
 
-@hydra.main(config_path="conf", config_name="conf", version_base=str(hydra.__version__))
+@hydra.main(config_path="conf", config_name="conf")#, version_base=str(hydra.__version__))
 def main(args):
     try:
         torch.cuda.set_device(args.gpu)

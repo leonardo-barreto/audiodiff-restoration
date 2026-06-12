@@ -11,8 +11,6 @@ import hydra
 import utils.log as utils_logging
 import utils.training_utils as tr_utils
 
-
-
 class Tester():
     def __init__(
             self, args, network, diff_params, inference_train_set=None, inference_test_set=None, device=None,
@@ -36,6 +34,10 @@ class Tester():
             torch.backends.cudnn.benchmark = True
             if self.device is None:
                 self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    ##########################################
+    # INITIALIZING AND LOADING CHECKPOINTS
+    ##########################################
 
     def setup_wandb(self):
         """
@@ -95,7 +97,9 @@ class Tester():
         print(f"loading checkpoint {self.it}")
         return tr_utils.load_state_dict(state_dict, ema=self.network)
 
-    # ------------- LOGGING AND SAVING PARAMS ---------------#
+    ##########################################
+    # LOGGING AND SAVING PARAMS
+    ##########################################
 
     def log_audio(self, pred, name: str):
         if self.use_wandb:
@@ -134,11 +138,9 @@ class Tester():
                   'w') as f:  # Keep track of the arguments we used for this experiment
             omegaconf.OmegaConf.save(config=self.args, f=f.name)
 
-    # ------------- UNCONDITIONAL SAMPLING ---------------#
-
-    ##############################
-    ### UNCONDITIONAL SAMPLING ###
-    ##############################
+    ##########################################
+    # SAMPLING MODES
+    ##########################################
 
     def sample_unconditional(self, mode):
         # the audio length is specified in the args.exp, doesnt depend on the tester --> well should probably change that
@@ -162,6 +164,10 @@ class Tester():
 
         return preds
 
+    ##########################################
+    # MAIN LOOP
+    ##########################################
+
     def do_test(self, it=0):
 
         self.it = it
@@ -174,5 +180,13 @@ class Tester():
                     self.prepare_directories(m, unconditional=True)
                     self.save_experiment_args(m)
                 self.sample_unconditional(m)
+
+            if m == "conditional"
+                print("testing conditional")
+                if not self.in_training:
+                    self.prepare_directories(m, unconditional=False)
+                    self.save_experiment_args(m)
+                self.sample_conditional(m)
+                
             else:
                 print("Warning: unknown mode: ", m)

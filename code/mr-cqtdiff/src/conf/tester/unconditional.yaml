@@ -32,7 +32,7 @@ sampling_params:
 #experiment configuration for different testing modes
 
 unconditional:
-  num_samples: 5
+  num_samples: 1
   #batch_size: 4
   #audio_len: 65536
 

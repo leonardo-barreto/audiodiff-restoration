@@ -48,7 +48,8 @@ audio_len: 65536
 #batch_size: 2
 #max_iters: 1280000
 batch_size: 5
-max_iters: 450000 # Continue training later to complete 1,600,000 iterations
+#max_iters: 450001 # Continue training later to complete 1,600,000 iterations
+max_iters: 1600000
 
 #----------------
 # EMA of weights
@@ -69,8 +70,8 @@ ema_rampup: 32000  #1.5s and batch_size = 5
 seed: 42 # random seed
 
 # Resume from checkpoint
-resume: False
-resume_checkpoint: None
+resume: True
+resume_checkpoint: /home/leonardo.barreto/Documents/pesquisa/mestrado/audiodiff-restoration-project/code/mr-cqtdiff/src/experiments/MR-CQTDiff_44k_MAESTRO/len1_5-bat5-lr2-sched2_3-diffBern-3090-400000.pt
 
 #gradient clipping
 use_grad_clip: True

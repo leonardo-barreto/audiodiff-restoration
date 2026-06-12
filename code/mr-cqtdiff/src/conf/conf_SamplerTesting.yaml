@@ -1,0 +1,23 @@
+defaults:
+  - _self_
+  - dset: dataset_MAESTRO # not important since not training
+  - network: MR-cqtdiff_44k
+  - diff_params: edm
+  # NEW TESTER
+  - tester: conditional
+  ############ 
+  - exp: 44kHz_1_5s
+  - logging: maestro_train_logging #not important now, but could be for test logging
+
+model_dir: "experiments/MR-CQTDiff_44k_MAESTRO"
+
+hydra:
+  job:
+    config:
+      # configuration for the ${hydra.job.override_dirname} runtime variable
+      override_dirname:
+        kv_sep: '='
+        item_sep: ','
+        # Remove all paths, as the / in them would mess up things
+        exclude_keys: ['path_experiment',
+          'hydra.job_logging.handles.file.filename']

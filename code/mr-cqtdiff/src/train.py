@@ -51,6 +51,7 @@ class Trainer():
                                                     optimizer=self.optimizer,
                                                     step_size=self.args.exp.lr_scheduler.step_size,
                                                     gamma=self.args.exp.lr_scheduler.gamma)
+        # ---------------------------------------
 
         self.ema = copy.deepcopy(self.network).eval().requires_grad_(False)
 
@@ -70,7 +71,7 @@ class Trainer():
         resuming = False
         if self.args.exp.resume:
             if self.args.exp.resume_checkpoint is not None:
-                resuming = self.resume_from_checkpoint(checkpoint_path=self.args.exp.resume_checkpoint)
+                resuming = self.resume_from_checkpoint(checkpoint_path=self.args.exp.resume_checkpoint)         
             else:
                 print("resuming from cejsdat")
                 resuming = self.resume_from_checkpoint()
@@ -79,6 +80,8 @@ class Trainer():
                 print("training from scratch")
             else:
                 print("Resuming from iteration {}".format(self.it))
+                # Added by Leonardo Barreto
+                #self.latest_checkpoint = os.path.join(self.args.model_dir,f"{self.args.exp.exp_name}-{self.it}.pt")
         if not resuming:
             self.it = 0
             self.latest_checkpoint = None
@@ -105,11 +108,18 @@ class Trainer():
         """
         Configure wandb, open a new run and log the configuration.
         """
+        # Added by Leonardo Barreto (trying to resume run, but wandb doesn't support it freely yet)
+        """ if self.latest_checkpoint is not None:
+            self.wandb_run = wandb.init(entity=self.args.logging.wandb.entity, 
+                                        project=self.args.logging.wandb.project,
+                                        resume_from=f"{self.args.logging.wandb.resume_run_id}?_step={self.it}")
+        else: """
         config = omegaconf.OmegaConf.to_container(
             self.args, resolve=True, throw_on_missing=True
         )
         config["total_params"] = self.total_params
         #self.wandb_run = wandb.init(project=self.args.logging.wandb.project, config=config, dir=self.args.model_dir)
+
         self.wandb_run = wandb.init(entity=self.args.logging.wandb.entity, 
                                     project=self.args.logging.wandb.project, 
                                     config=config, dir=self.args.model_dir)
@@ -352,7 +362,7 @@ class Trainer():
     def training_loop(self):
 
         #while True:
-        for _ in tqdm(range(self.it, self.args.exp.max_iters),
+        for _ in tqdm(range(self.it, self.args.exp.max_iters+1),
                       initial=self.it,
                       total=self.args.exp.max_iters,
                       desc="Training iterations"):

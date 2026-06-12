@@ -1,0 +1,41 @@
+name: "2nd-order-Heun-Conditional" #same as the file name, try to do that for all testers
+
+tester:
+  _target_: 'testing.tester.Tester'
+
+sampler:
+  _target_: 'sampling.SamplerNew.SamplerNew'
+  conditioner:
+    _target_: conditioners.Dummy.Dummy
+
+modes: ["conditional"] #modes to test
+
+checkpoint: None
+
+overriden_name: Null
+
+sampling_params:
+  same_as_training: False #if true, the sampling parameters will be the same as the ones used for training (sigma_data, sigma_min, sigma_max and rho)
+  sde_hp:
+    sigma_data: 0.063 #default for maestro
+    sigma_min: 1e-6 # (mrcqtdiff def=1e-5)
+    sigma_max: 10 #this is sigma_start (mrcqtdiff def=8)
+    rho: 13 # (mrcqtdiff def=10)
+  Schurn: 5 # S_total on Bernardo (mrcqtdiff def=10)
+  Snoise: 1 # S_Z on Bernardo
+  Stmin: 0
+  Stmax: 100 # if bigger than sigma_max, not used (mrcqtdiff def=10)
+  order: 2 # order of the sampler (1 or 2)
+  T: 51 # number of discretization steprs
+  schedule: "edm" #"log": log schedule using the parameters in sampling_params
+
+
+#experiment configuration for different testing modes
+
+unconditional:
+  num_samples: 1
+  #batch_size: 4
+  #audio_len: 65536
+
+wandb:
+  use: False
