@@ -1,20 +1,19 @@
-from tqdm import tqdm
 import torch
 
-class Dummy():
+class BaseConditioner:
 
-    #def __init__(self, args):
-
-    def conditioning_term(self, x, x_den, y, t_i, degradation):
-        return 0.0
-
-class BaseConditioner():
+    requires_grad = False
 
     def __init__(self, args):
-        pass
+        self.args = args
 
-    def conditioning_term(self, x, x_den, t_i):
-        pass
+    def conditioning_term(self, x, x_den, t_i, y, degradation):
+        """Return a score correction term with the same shape as x."""
+        raise NotImplementedError
 
-    def step_callback(self, sampler_state):
-        pass
+
+class Dummy(BaseConditioner):
+
+    def conditioning_term(self, x, x_den, t_i, y, degradation):
+        return torch.zeros_like(x)
+

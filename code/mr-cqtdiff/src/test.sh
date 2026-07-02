@@ -5,6 +5,7 @@ source /home/leonardo.barreto/Documents/pesquisa/mestrado/audiodiff-restoration-
 #test_script=test_unconditional.py
 test_script=test_conditional.py
 
+#conf=conf_MAESTRO.yaml
 conf=conf_SamplerTesting.yaml
 
 name="MR-CQTDiff_44k_MAESTRO"

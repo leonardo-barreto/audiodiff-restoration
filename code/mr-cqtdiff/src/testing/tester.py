@@ -8,6 +8,7 @@ import copy
 from glob import glob
 import omegaconf
 import hydra
+import torchaudio
 import utils.log as utils_logging
 import utils.training_utils as tr_utils
 
@@ -146,7 +147,9 @@ class Tester():
         # the audio length is specified in the args.exp, doesnt depend on the tester --> well should probably change that
         audio_len = self.args.exp.audio_len if not "audio_len" in self.args.tester.unconditional.keys() else self.args.tester.unconditional.audio_len
 
-        shape = [self.args.tester.unconditional.num_samples, audio_len]
+        num_samples = 1 if not "num_samples" in self.args.tester.unconditional.keys() else self.args.tester.unconditional.num_samples
+
+        shape = [num_samples, audio_len]
 
         preds, noise_init = self.sampler.predict_unconditional(shape, self.device)
         sigma_data = self.sampler.diff_params.sigma_data
@@ -161,6 +164,57 @@ class Tester():
                                                                         self.args.exp.sample_rate,
                                                                         f"unconditional_{i}",
                                                                         path=self.paths["unconditional"])
+
+        return preds
+
+    def sample_conditional(self, mode):
+        # Quick conditional plumbing test.
+        # Load a degraded observation y and apply a simple random gaussian degradation model.
+        if not hasattr(self.args.tester, "conditional"):
+            raise ValueError("Conditional sampling requires args.tester.conditional configuration")
+
+        y_path = (
+            self.args.tester.conditional.y_path
+            if "y_path" in self.args.tester.conditional.keys()
+            else "noisy_sample.wav"
+        )
+
+        if not os.path.isabs(y_path):
+            y_path = os.path.join(os.getcwd(), y_path)
+
+        if not os.path.exists(y_path):
+            raise FileNotFoundError(f"Conditional sample file not found: {y_path}")
+
+        y, sample_rate = torchaudio.load(y_path)
+        if y.ndim == 2 and y.shape[0] == 1:
+            y = y.squeeze(0)
+        if y.ndim == 1:
+            y = y.unsqueeze(0)
+
+        print(f"Loaded conditional sample: {y_path}")
+        print(f"y shape = {y.shape}, sample_rate = {sample_rate}")
+
+        # The degradation model is not used by Dummy conditioner, but we include it for interface completeness.
+        noise_sigma = (
+            self.args.tester.conditional.noise_sigma
+            if "noise_sigma" in self.args.tester.conditional.keys()
+            else 0.01
+        )
+        degradation = lambda x: x + torch.randn_like(x) * noise_sigma
+
+        preds, init = self.sampler.predict_conditional(y.to(self.device), degradation)
+
+        if self.use_wandb:
+            self.log_audio(preds[0], f"conditional+{self.sampler.T}")
+        else:
+            print(f"Writing conditional outputs to {self.paths['conditional']}")
+            for i in range(len(preds)):
+                utils_logging.write_audio_file(
+                    preds[i],
+                    sample_rate,
+                    f"conditional_{i}",
+                    path=self.paths["conditional"],
+                )
 
         return preds
 
@@ -180,13 +234,11 @@ class Tester():
                     self.prepare_directories(m, unconditional=True)
                     self.save_experiment_args(m)
                 self.sample_unconditional(m)
-
-            if m == "conditional"
+            elif m == "conditional":
                 print("testing conditional")
                 if not self.in_training:
-                    self.prepare_directories(m, unconditional=False)
+                    self.prepare_directories(m)
                     self.save_experiment_args(m)
                 self.sample_conditional(m)
-                
             else:
                 print("Warning: unknown mode: ", m)

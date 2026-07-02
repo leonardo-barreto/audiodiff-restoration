@@ -4,12 +4,11 @@ tester:
   _target_: 'testing.tester.Tester'
 
 sampler:
-  _target_: 'testing.SamplerEulerHeun.SamplerEulerHeun'
+  _target_: 'sampling.SamplerEulerHeun.SamplerEulerHeun'
 
 modes: ["unconditional"] #modes to test
 
 checkpoint: None
-
 
 overriden_name: Null
 
@@ -34,7 +33,7 @@ sampling_params:
 unconditional:
   num_samples: 1
   #batch_size: 4
-  #audio_len: 65536
+  audio_len: 65536
 
 wandb:
   use: False

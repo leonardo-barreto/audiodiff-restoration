@@ -45,7 +45,7 @@ def _main(args):
                     device=device)  # this will be used for making demos during training
 
     # Print options
-    audio_len = args.exp.audio_len if not "audio_len" in args.tester.unconditional.keys() else args.tester.unconditional.audio_len
+    audio_len = args.exp.audio_len if not "audio_len" in args.tester.conditional.keys() else args.tester.conditional.audio_len
 
     if args.tester.checkpoint != 'None':
         ckpt_path = os.path.join(dirname, args.tester.checkpoint)

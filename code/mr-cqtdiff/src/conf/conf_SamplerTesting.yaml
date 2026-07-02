@@ -10,6 +10,7 @@ defaults:
   - logging: maestro_train_logging #not important now, but could be for test logging
 
 model_dir: "experiments/MR-CQTDiff_44k_MAESTRO"
+gpu: 1
 
 hydra:
   job:

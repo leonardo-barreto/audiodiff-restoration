@@ -1,5 +1,6 @@
 from tqdm import tqdm
 import torch
+import hydra
 
 class SamplerNew():
 
@@ -25,14 +26,12 @@ class SamplerNew():
         # order of the sampler
         self.order = self.args.tester.sampling_params.order
 
-        # conditioning (for conditional sampling)
+        # Added by Leonardo Barreto
+        # Sampler Mode (for conditional sampling)
+        # conditional sampling state is passed explicitly through the predict / step calls
         self.conditioner = None
-        if "conditioner" in args.tester.sampler:
-            self.conditioner = hydra.utils.instantiate(
-                args.tester.sampler.conditioner,
-                diff_params=diff_params,
-                args=args
-            )
+        if hasattr(self.args.tester, "conditioner") and self.args.tester.conditioner is not None:
+            self.conditioner = hydra.utils.instantiate(self.args.tester.conditioner, self.args)
 
     ##########################################
     # NOISE SCHEDULE
@@ -114,19 +113,34 @@ class SamplerNew():
 
     # Added by Leonardo Barreto
     def get_score(self, x, t_i, y=None, degradation=None):
+        """Compute the score for the current latent.
 
-        # unconditional score: ∇x{log[p(x)]}
+        Unconditional score is the gradient of log p(x).
+        Conditional score is log p(x|y) = log p(x) + log p(y|x) and is implemented
+        by adding a conditioning term from the configured conditioner.
+        """
+
         with torch.no_grad():
-            x_hat = self.get_Tweedie_estimate(x, t_i)
-            score = self.Tweedie2score(x_hat, x, t_i)
+            x_den = self.get_Tweedie_estimate(x, t_i)
+            score = self.Tweedie2score(x_den, x, t_i)
 
-        # if conditioning, then use the conditional score: ∇x{log[p(x|y)]} = ∇x{log[p(x)]} + ∇x{log[p(y|x)]}
-        if self.conditioner is not None:
-            if y != None:
-                assert degradation != None
-                score = score + self.conditioner.conditioning_term(x, x_hat, y, t_i, degradation)
+        if self.conditioner is None:
+            return score
+        else:
+            requires_grad = getattr(self.conditioner, "requires_grad", False)
 
-        return score
+            if requires_grad:
+                x_grad = x.detach().requires_grad_(True)
+                x_den_grad = self.get_Tweedie_estimate(x_grad, t_i)
+                cond_score = self.conditioner.conditioning_term(x_grad, x_den_grad, t_i, y, degradation)
+            else:
+                cond_score = self.conditioner.conditioning_term(x, x_den, t_i, y, degradation)
+
+            if not torch.is_tensor(cond_score):
+                cond_score = torch.tensor(cond_score, dtype=score.dtype, device=score.device)
+
+            # conditional score: ∇x log p(x|y)
+            return score + cond_score
 
     ##########################################
     # DIFFUSION STEP
@@ -142,28 +156,25 @@ class SamplerNew():
             x_hat = x + ((t_hat ** 2 - t ** 2) ** (1 / 2)) * epsilon  # Perturb data
         return x_hat, t_hat
 
-    def step(self, x_i, t_i, t_iplus1, gamma_i, blind=False):
+    def step(self, x_i, t_i, t_iplus1, gamma_i, y=None, degradation=None, blind=False):
 
         with torch.no_grad():
-            x_hat, t_hat = x_i, t_i
-            # Score
-            score = self.get_score(x_hat, t_hat, self.y, self.degradation)
+            x_hat, t_hat = self.stochastic_timestep(x_i, t_i, gamma_i, self.Snoise)
+            score = self.get_score(x_hat, t_hat, y, degradation)
             ode_integrand = self.diff_params._ode_integrand(x_hat, t_hat, score)
             dt = t_iplus1 - t_hat
 
             if t_iplus1 != 0 and self.order == 2:  # second order correction
                 t_prime = t_iplus1
                 x_prime = x_hat + dt * ode_integrand
-                # Score
-                score = self.get_score(x_hat, t_hat, self.y, self.degradation)
+                score = self.get_score(x_prime, t_prime, y, degradation)
                 ode_integrand_next = self.diff_params._ode_integrand(x_prime, t_prime, score)
                 ode_integrand_midpoint = .5 * (ode_integrand + ode_integrand_next)
                 x_iplus1 = x_hat + dt * ode_integrand_midpoint
-
             else:
                 x_iplus1 = x_hat + dt * ode_integrand
 
-            return x_iplus1, x_den
+            return x_iplus1
     
     ##########################################
     # MAIN PREDICTION LOOP
@@ -172,27 +183,36 @@ class SamplerNew():
     def predict_unconditional(
             self,
             shape,  # observations (lowpssed signal) Tensor with shape ??
-            device
+            device,
+            blind=False,
     ):
 
         print(shape)
-
-        return self.predict(shape, device)
+        return self.predict(shape, device, y=None, degradation=None, blind=blind)
 
     def predict_conditional(
         self,
-        y,  # observations (lowpssed signal) Tensor with shape ??
-        degradation,  # lambda function
+        y=None,  # observations (lowpssed signal) Tensor with shape ??
+        degradation=None,  # lambda function
+        blind=False,
     ):
-        self.degradation = degradation
-        self.y = y
-        return self.predict(y.shape, y.device)
+        return self.predict(y.shape, y.device, y=y, degradation=degradation, blind=blind)
+
+    def predict_resample(
+        self,
+        y,
+        shape,
+        degradation,
+    ):
+        return self.predict(shape, y.device, y=y, degradation=degradation)
 
     def predict(
             self,
             shape,  # observations (lowpssed signal) Tensor with shape ??
-            device,  # lambda function
-            blind=False
+            device,
+            y=None,
+            degradation=None,
+            blind=False,
     ):
 
         # get the noise schedule
@@ -208,8 +228,7 @@ class SamplerNew():
 
         for i in tqdm(range(0, self.T-1, 1)):
             self.step_counter = i
-            x, x_den = self.step(x, t[i], t[i + 1], gamma[i], blind)
+            x = self.step(x, t[i], t[i + 1], gamma[i], y=y, degradation=degradation, blind=blind)
 
-
-
-        return x_den.detach(), x_init.detach()
+        return x.detach(), x_init.detach()
+    

@@ -5,10 +5,11 @@ tester:
 
 sampler:
   _target_: 'sampling.SamplerNew.SamplerNew'
-  conditioner:
-    _target_: conditioners.Dummy.Dummy
 
+# CONDITIONAL SAMPLING
 modes: ["conditional"] #modes to test
+conditioner:
+  _target_: 'sampling.conditioners.Dummy.Dummy'
 
 checkpoint: None
 
@@ -32,10 +33,16 @@ sampling_params:
 
 #experiment configuration for different testing modes
 
-unconditional:
+conditional:
+  num_samples: 1
+  audio_len: 65536
+  y_path: "/home/leonardo.barreto/Documents/pesquisa/mestrado/audiodiff-restoration-project/audio-examples/sampling_testing/noisy_sample.wav"
+  noise_sigma: 0.01
+
+output:
   num_samples: 1
   #batch_size: 4
-  #audio_len: 65536
+  audio_len: 65536
 
 wandb:
   use: False
