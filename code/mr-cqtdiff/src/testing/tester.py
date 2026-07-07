@@ -8,9 +8,10 @@ import copy
 from glob import glob
 import omegaconf
 import hydra
-import torchaudio
 import utils.log as utils_logging
 import utils.training_utils as tr_utils
+
+
 
 class Tester():
     def __init__(
@@ -36,10 +37,6 @@ class Tester():
             if self.device is None:
                 self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    ##########################################
-    # INITIALIZING AND LOADING CHECKPOINTS
-    ##########################################
-
     def setup_wandb(self):
         """
         Configure wandb, open a new run and log the configuration.
@@ -62,6 +59,7 @@ class Tester():
         self.wandb_run = run
         self.use_wandb = True
 
+    
     def load_latest_checkpoint(self):
         # load the latest checkpoint from self.args.model_dir
         try:
@@ -98,10 +96,6 @@ class Tester():
         print(f"loading checkpoint {self.it}")
         return tr_utils.load_state_dict(state_dict, ema=self.network)
 
-    ##########################################
-    # LOGGING AND SAVING PARAMS
-    ##########################################
-
     def log_audio(self, pred, name: str):
         if self.use_wandb:
             print(pred.shape)
@@ -115,7 +109,39 @@ class Tester():
 
             if self.args.logging.log_spectrograms:
                 raise NotImplementedError
-    
+
+    # ------------- UNCONDITIONAL SAMPLING ---------------#
+
+    ##############################
+    ### UNCONDITIONAL SAMPLING ###
+    ##############################
+
+
+    def sample_unconditional(self, mode):
+        # the audio length is specified in the args.exp, doesnt depend on the tester --> well should probably change that
+        audio_len = self.args.exp.audio_len if not "audio_len" in self.args.tester.unconditional.keys() else self.args.tester.unconditional.audio_len
+
+        shape = [self.args.tester.unconditional.num_samples, audio_len]
+
+        preds, noise_init = self.sampler.predict_unconditional(shape, self.device)
+        sigma_data = self.sampler.diff_params.sigma_data
+
+        if self.use_wandb:
+            # preds=preds/torch.max(torch.abs(preds))
+            self.log_audio(preds[0], f"unconditional+{self.sampler.T}")  # Just log first sample
+            # self.log_unconditional_metrics(preds) #But compute metrics on several
+        else:
+                    for i in range(len(preds)):
+                        path_generated = utils_logging.write_audio_file(preds[i] ,
+                                                                        self.args.exp.sample_rate,
+                                                                        f"unconditional_{i}",
+                                                                        path=self.paths["unconditional"])
+
+        return preds
+
+            
+
+
     def prepare_directories(self, mode, unconditional=False, blind=False, string=None):
 
         today = date.today()
@@ -134,93 +160,11 @@ class Tester():
         if string is None:
             string = ""
 
+
     def save_experiment_args(self, mode):
         with open(os.path.join(self.paths[mode], ".argv"),
                   'w') as f:  # Keep track of the arguments we used for this experiment
             omegaconf.OmegaConf.save(config=self.args, f=f.name)
-
-    ##########################################
-    # SAMPLING MODES
-    ##########################################
-
-    def sample_unconditional(self, mode):
-        # the audio length is specified in the args.exp, doesnt depend on the tester --> well should probably change that
-        audio_len = self.args.exp.audio_len if not "audio_len" in self.args.tester.unconditional.keys() else self.args.tester.unconditional.audio_len
-
-        num_samples = 1 if not "num_samples" in self.args.tester.unconditional.keys() else self.args.tester.unconditional.num_samples
-
-        shape = [num_samples, audio_len]
-
-        preds, noise_init = self.sampler.predict_unconditional(shape, self.device)
-        sigma_data = self.sampler.diff_params.sigma_data
-
-        if self.use_wandb:
-            # preds=preds/torch.max(torch.abs(preds))
-            self.log_audio(preds[0], f"unconditional+{self.sampler.T}")  # Just log first sample
-            # self.log_unconditional_metrics(preds) #But compute metrics on several
-        else:
-                    for i in range(len(preds)):
-                        path_generated = utils_logging.write_audio_file(preds[i] ,
-                                                                        self.args.exp.sample_rate,
-                                                                        f"unconditional_{i}",
-                                                                        path=self.paths["unconditional"])
-
-        return preds
-
-    def sample_conditional(self, mode):
-        # Quick conditional plumbing test.
-        # Load a degraded observation y and apply a simple random gaussian degradation model.
-        if not hasattr(self.args.tester, "conditional"):
-            raise ValueError("Conditional sampling requires args.tester.conditional configuration")
-
-        y_path = (
-            self.args.tester.conditional.y_path
-            if "y_path" in self.args.tester.conditional.keys()
-            else "noisy_sample.wav"
-        )
-
-        if not os.path.isabs(y_path):
-            y_path = os.path.join(os.getcwd(), y_path)
-
-        if not os.path.exists(y_path):
-            raise FileNotFoundError(f"Conditional sample file not found: {y_path}")
-
-        y, sample_rate = torchaudio.load(y_path)
-        if y.ndim == 2 and y.shape[0] == 1:
-            y = y.squeeze(0)
-        if y.ndim == 1:
-            y = y.unsqueeze(0)
-
-        print(f"Loaded conditional sample: {y_path}")
-        print(f"y shape = {y.shape}, sample_rate = {sample_rate}")
-
-        # The degradation model is not used by Dummy conditioner, but we include it for interface completeness.
-        noise_sigma = (
-            self.args.tester.conditional.noise_sigma
-            if "noise_sigma" in self.args.tester.conditional.keys()
-            else 0.01
-        )
-        degradation = lambda x: x + torch.randn_like(x) * noise_sigma
-
-        preds, init = self.sampler.predict_conditional(y.to(self.device), degradation)
-
-        if self.use_wandb:
-            self.log_audio(preds[0], f"conditional+{self.sampler.T}")
-        else:
-            print(f"Writing conditional outputs to {self.paths['conditional']}")
-            for i in range(len(preds)):
-                utils_logging.write_audio_file(
-                    preds[i],
-                    sample_rate,
-                    f"conditional_{i}",
-                    path=self.paths["conditional"],
-                )
-
-        return preds
-
-    ##########################################
-    # MAIN LOOP
-    ##########################################
 
     def do_test(self, it=0):
 
@@ -234,11 +178,5 @@ class Tester():
                     self.prepare_directories(m, unconditional=True)
                     self.save_experiment_args(m)
                 self.sample_unconditional(m)
-            elif m == "conditional":
-                print("testing conditional")
-                if not self.in_training:
-                    self.prepare_directories(m)
-                    self.save_experiment_args(m)
-                self.sample_conditional(m)
             else:
                 print("Warning: unknown mode: ", m)

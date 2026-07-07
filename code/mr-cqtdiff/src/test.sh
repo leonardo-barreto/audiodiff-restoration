@@ -19,6 +19,7 @@ ckpt="experiments/MR-CQTDiff_44k_MAESTRO/len1_5-bat5-lr2-sched2_3-diffBern-3090-
 mkdir -p $PATH_EXPERIMENT
 
 python $test_script --config-name=$conf \
+  network=$network \
   model_dir=$PATH_EXPERIMENT \
   tester.checkpoint=$ckpt \
   #tester.unconditional.num_samples=1 \

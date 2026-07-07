@@ -1,0 +1,83 @@
+defaults:
+  - _self_
+  - network: MR-cqtdiff_44k
+  - exp: 44kHz_1_5s
+  - diff_params: edm
+
+debug: True
+
+### (NOT USED YET) ###
+# subjective test args
+#testing:
+  #folder: "/home/leonardo.barreto/Documents/pesquisa/mestrado/audio-examples"
+  #panel:
+  #out: "restored"
+
+# audio len and sr as needed in moliner's code
+audio_len: 44100 # block len actually -- had to reuse this name because of eloi moliner's code
+sample_rate: 44100
+
+# audio args
+noisy_audio: 
+output_file: 
+block_duration: 1.0 # Block (in seconds) for denoising
+overlap_duration: 0.25 # Overlap (in seconds) between blocks
+
+# network args
+#device:
+# MR-CQTDiff MAESTRO
+network: MR-cqtdiff_44k
+model_dir: "experiments/MR-CQTDiff_44k_MAESTRO"
+checkpoint: "len1_5-bat5-lr2-sched2_3-diffBern-3090-1600000.pt"
+# BVM (CQT-Diff)
+#checkpoint: "/home/leonardo.barreto/Documents/pesquisa/mestrado/weights/weights-2303999.pt"
+#cqt:
+  #binsoct: 64 #important
+  #numocts: 7  #important
+  #fmax: "nyq" # not used
+  #fmin: 150 #no worries, not used
+  #use_norm: False
+
+tester:
+  mode: "conditional"
+  sampling_params:
+    same_as_training: False #if true, the sampling parameters will be the same as the ones used for training (sigma_data, sigma_min, sigma_max and rho)
+    sde_hp:
+      sigma_data: 0.063 #default for maestro
+      sigma_min: 1e-6 # (mrcqtdiff def=1e-5)
+      sigma_max: 10 #this is sigma_start (mrcqtdiff def=8)
+      rho: 13 # (mrcqtdiff def=10)
+    Schurn: 5 # S_total on Bernardo (mrcqtdiff def=10)
+    Snoise: 1 # S_Z on Bernardo
+    Stmin: 0
+    Stmax: 100 # if bigger than sigma_max, not used (mrcqtdiff def=10)
+    order: 2 # order of the sampler (1 or 2)
+    T: 51 # number of discretization steprs
+    schedule: "edm" #"log": log schedule using the parameters in sampling_params
+
+inference:
+  infer_xi: False
+  xi:   # default 0.35
+  use_gain: True
+  use_range: False
+  order: 2  
+  data_consistency: False
+  T: 140
+  max_thresh_grads: 1
+  denoising:
+    noise_files_path: "/home/leonardo.barreto/Documents/pesquisa/mestrado/noise-dataset/gramophone/train/no-fade"
+    crossfade_duration: 0.1
+    power_window_size: 8192
+  noise_gain: # not used unless use_range = False and use_gain = False --> fix this patch later (26/03/2024)
+  snr_range: # not used unless use_range = True and use_gain = True --> fix this patch later (26/03/2024)
+  
+hydra:
+  job:
+    config:
+      # configuration for the ${hydra.job.override_dirname} runtime variable
+      override_dirname:
+        kv_sep: '='
+        item_sep: ','
+        # Remove all paths, as the / in them would mess up things
+        exclude_keys: ['path_experiment',
+          'hydra.job_logging.handles.file.filename']

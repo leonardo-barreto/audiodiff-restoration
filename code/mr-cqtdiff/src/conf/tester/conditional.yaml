@@ -1,7 +1,7 @@
 name: "2nd-order-Heun-Conditional" #same as the file name, try to do that for all testers
 
 tester:
-  _target_: 'testing.tester.Tester'
+  _target_: 'testing.tester_DummyConditioner.TesterDummyConditioner'
 
 sampler:
   _target_: 'sampling.SamplerNew.SamplerNew'
