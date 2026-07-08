@@ -13,7 +13,7 @@ ckpt="experiments/MR-CQTDiff_44k_MAESTRO/len1_5-bat5-lr2-sched2_3-diffBern-3090-
 
 #choose noisy audio file
 noisy_audio="/home/leonardo.barreto/Documents/pesquisa/mestrado/audiodiff-restoration-project/audio-examples/sampling_testing/noisy_sample.wav"
-output_file="/home/leonardo.barreto/Documents/pesquisa/mestrado/audiodiff-restoration-project/audio-examples/OLA_test_output.wav"
+output_file="/home/leonardo.barreto/Documents/pesquisa/mestrado/audiodiff-restoration-project/audio-examples/sampling_test_output.wav"
 
 
 mkdir -p $PATH_EXPERIMENT

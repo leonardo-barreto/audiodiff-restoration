@@ -17,7 +17,7 @@ from testing.tester import Tester
 
 class Tester78rpm(Tester): # Inheritance just to use the base methods, such as load_checkpoint and etc.
     def __init__(
-            self, args, network, diff_params, sampler=None, conditioner=None, noisy_audio_blocks: Optional[DataLoader] = None, device=None):
+            self, args, network, diff_params, sampler=None, noisy_audio_blocks: Optional[DataLoader] = None, device=None):
 
         # Parent class-only attributes (don't care)
         self.in_training = False
@@ -29,7 +29,11 @@ class Tester78rpm(Tester): # Inheritance just to use the base methods, such as l
         self.args = args
         self.network = network
         self.diff_params = copy.copy(diff_params)
-        self.device = device
+        torch.backends.cudnn.benchmark = True
+        if device is None:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            self.device = device
         
         # Setup the noisy audio blocks and output length
         self.noisy_audio_blocks = noisy_audio_blocks
@@ -39,13 +43,9 @@ class Tester78rpm(Tester): # Inheritance just to use the base methods, such as l
         self.denoised_audio_blocks = torch.Tensor().to("cpu")
         self.reconstructed_audio = torch.Tensor().to("cpu")
 
-        # Possibility to set sampler from outside, otherwise instantiate them from the config
-        #if sampler is None:
-            #self.sampler = hydra.utils.instantiate(args.sampler, self.network, self.diff_params, self.args)
-
-        torch.backends.cudnn.benchmark = True
-        if self.device is None:
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # Possibility to set sampler from outside, otherwise instantiate them from the tester config
+        if sampler is None:
+            self.sampler = hydra.utils.instantiate(args.tester.sampler, self.args, self.network, self.diff_params)
     
     def inference(self):
 
@@ -56,24 +56,21 @@ class Tester78rpm(Tester): # Inheritance just to use the base methods, such as l
         #if self.args.inference.infer_xi == True:
             #sampler.xi = power_estimation_utils.get_xi_estimate(floor)
             #print(f"XI Estimate: {sampler.xi}")
-
-        if self.args.inference.use_gain == True:
-            print(f"Estimated gain: {math.sqrt(floor)}\n")
         
         # Loop through the blocks and denoise them
         denoised_blocks = []
         for block in tqdm(self.noisy_audio_blocks):
             b = block[0].to(self.device)
 
-            """ # Perform inference with selected noise injection method
+            # Perform inference with selected noise injection method
             if (self.args.inference.use_range == True) and (self.args.inference.use_gain == True):
                 print(f"Denoising with fixed SNR Range {self.args.inference.snr_range}")
-                denoised_block = sampler.predict_gramophone_denoising_with_snr(
+                denoised_block, noise_init = self.sampler.predict_gramophone_denoising_with_snr(
                     b, self.args.inference.snr_range
                 )
             if (self.args.inference.use_range == False) and (self.args.inference.use_gain == False):
                 print(f"Denoising with fixed gain {self.args.inference.noise_gain}")
-                denoised_block = sampler.predict_gramophone_denoising(
+                denoised_block, noise_init = self.sampler.predict_gramophone_denoising(
                     b, self.args.inference.noise_gain
                 )
             if (self.args.inference.use_range == True) and (self.args.inference.use_gain == False):
@@ -81,26 +78,22 @@ class Tester78rpm(Tester): # Inheritance just to use the base methods, such as l
                 range_min = power_estimation_utils.get_snr_range_min(b, floor, window_size)
                 range_width = power_estimation_utils.get_snr_range_width(floor, ceil)
                 snr_range = [range_min, range_min + range_width]
-                #ADDED
                 print(f"Estimated SNR Range: [{snr_range[0]},{snr_range[1]}]")
-                #ADDED END
-                denoised_block = sampler.predict_gramophone_denoising_with_snr(b, snr_range)
+                denoised_block, noise_init = self.sampler.predict_gramophone_denoising_with_snr(b, snr_range)
             if (self.args.inference.use_range == False) and (self.args.inference.use_gain == True):
                 print("Denoising estimating noise gain")
-                denoised_block = sampler.predict_gramophone_denoising(b, math.sqrt(floor)) """
+                print(f"Estimated gain: {math.sqrt(floor)}\n")
+                denoised_block, noise_init = self.sampler.predict_gramophone_denoising(b, math.sqrt(floor))
 
-            denoised_block = b # bypass for block testing
+            #denoised_block = b # bypass for block testing
 
             # unsqueeze the denoised block to add a batch dimension and concatenate it to the denoised_blocks tensor    
             denoised_block = denoised_block.unsqueeze(0)
             denoised_blocks.append(denoised_block)
-            #self.denoised_audio_blocks = torch.cat((self.denoised_audio_blocks, denoised_block), dim=0)
 
         # Bring the denoised blocks back to CPU and reconstruct the audio
         self.denoised_audio_blocks = torch.cat(denoised_blocks, dim=0).cpu()
         self.reconstructed_audio = self.reconstruct(self.denoised_audio_blocks, self.out_len)
-        #denoised_blocks = self.denoised_audio_blocks.to("cpu")
-        #self.reconstructed_audio = self.reconstruct(denoised_blocks, self.out_len)
 
         return self.reconstructed_audio
     

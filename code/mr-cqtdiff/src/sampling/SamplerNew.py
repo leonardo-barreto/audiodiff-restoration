@@ -1,19 +1,25 @@
 from tqdm import tqdm
 import torch
 import hydra
+import os
+import random
+
+import utils.audio_restoration.denoising_utils as denoising_utils
 
 class SamplerNew():
 
-    def __init__(self, model, diff_params, args):
+    def __init__(self, args, model, diff_params, conditioner = None):
 
         self.model = model.eval() #is it ok to do this here?
         self.diff_params = diff_params #same as training, useful if we need to apply a wrapper or something
         self.args=args
+        
         if self.args.tester.sampling_params.same_as_training:
             self.sde_hp = diff_params.sde_hp
         else:
             self.sde_hp = self.args.tester.sampling_params.sde_hp
 
+        # diffusion timestep params
         self.T = self.args.tester.sampling_params.T
         self.step_counter = 0
 
@@ -26,11 +32,8 @@ class SamplerNew():
         # order of the sampler
         self.order = self.args.tester.sampling_params.order
 
-        # Added by Leonardo Barreto
-        # Sampler Mode (for conditional sampling)
-        # conditional sampling state is passed explicitly through the predict / step calls
-        self.conditioner = None
-        if hasattr(self.args.tester, "conditioner") and self.args.tester.conditioner is not None:
+        # Possibility to set conditioner from outside, otherwise instantiate them from the tester config
+        if conditioner is None:
             self.conditioner = hydra.utils.instantiate(self.args.tester.conditioner, self.args)
 
     ##########################################
@@ -130,9 +133,10 @@ class SamplerNew():
             requires_grad = getattr(self.conditioner, "requires_grad", False)
 
             if requires_grad:
-                x_grad = x.detach().requires_grad_(True)
-                x_den_grad = self.get_Tweedie_estimate(x_grad, t_i)
-                cond_score = self.conditioner.conditioning_term(x_grad, x_den_grad, t_i, y, degradation)
+                with torch.enable_grad():
+                    x_grad = x.detach().requires_grad_(True)
+                    x_den_grad = self.get_Tweedie_estimate(x_grad, t_i)
+                    cond_score = self.conditioner.conditioning_term(x_grad, x_den_grad, t_i, y, degradation)
             else:
                 cond_score = self.conditioner.conditioning_term(x, x_den, t_i, y, degradation)
 
@@ -156,7 +160,7 @@ class SamplerNew():
             x_hat = x + ((t_hat ** 2 - t ** 2) ** (1 / 2)) * epsilon  # Perturb data
         return x_hat, t_hat
 
-    def step(self, x_i, t_i, t_iplus1, gamma_i, y=None, degradation=None, blind=False):
+    def step(self, x_i, t_i, t_iplus1, gamma_i, y=None, degradation=None):
 
         with torch.no_grad():
             x_hat, t_hat = self.stochastic_timestep(x_i, t_i, gamma_i, self.Snoise)
@@ -181,22 +185,20 @@ class SamplerNew():
     ##########################################
 
     def predict_unconditional(
-            self,
-            shape,  # observations (lowpssed signal) Tensor with shape ??
-            device,
-            blind=False,
+        self,
+        shape,  # observations (lowpssed signal) Tensor with shape ??
+        device
     ):
 
         print(shape)
-        return self.predict(shape, device, y=None, degradation=None, blind=blind)
+        return self.predict(shape, device, y=None, degradation=None)
 
     def predict_conditional(
         self,
-        y=None,  # observations (lowpssed signal) Tensor with shape ??
-        degradation=None,  # lambda function
-        blind=False,
+        y,  # observations (lowpssed signal) Tensor with shape ??
+        degradation  # lambda function
     ):
-        return self.predict(y.shape, y.device, y=y, degradation=degradation, blind=blind)
+        return self.predict(y.shape, y.device, y=y, degradation=degradation)
 
     def predict_resample(
         self,
@@ -211,8 +213,7 @@ class SamplerNew():
             shape,  # observations (lowpssed signal) Tensor with shape ??
             device,
             y=None,
-            degradation=None,
-            blind=False,
+            degradation=None
     ):
 
         # get the noise schedule
@@ -228,7 +229,94 @@ class SamplerNew():
 
         for i in tqdm(range(0, self.T-1, 1)):
             self.step_counter = i
-            x = self.step(x, t[i], t[i + 1], gamma[i], y=y, degradation=degradation, blind=blind)
+            x = self.step(x, t[i], t[i + 1], gamma[i], y=y, degradation=degradation)
 
         return x.detach(), x_init.detach()
+
+class Sampler78rpm(SamplerNew):
+    def __init__(
+        self, args, model, diff_params, conditioner=None, rid=False
+    ):
+        super().__init__(args, model, diff_params, conditioner)
+        self.rid = rid
+        self.get_noise_samples()
+
+    ##############################
+    # GRAMOPHONE NOISE RETRIEVAL #
+    ##############################
+
+    def get_noise_samples(self):
+        # samples need to be in the same sampling rate as original audio !!!
+        noise_folder = self.args.inference.denoising.noise_files_path
+        noise_paths = [
+            os.path.join(noise_folder, file) for file in os.listdir(noise_folder)
+        ]
+        self.noises = [
+            denoising_utils.get_noise(
+                n_samples=self.args.audio_len,
+                crossfade_time=self.args.inference.denoising.crossfade_duration,
+                noise_path=path,
+            )
+            for path in noise_paths
+        ]
+
+    ##############################
+    # GRAMOPHONE NOISE INJECTION #
+    ##############################
+
+    def add_noise(self, signal, gain):
+        noise = random.choice(self.noises).to(self.device)
+        noise_power = torch.sum(torch.pow(noise, 2)) / noise.shape[-1]
+        noise = noise / torch.sqrt(noise_power)
+        noisy_signal = denoising_utils.add_noise_with_gain(signal, noise, gain)
+        return noisy_signal
+
+    def add_noise_with_snr(self, signal, range):
+        noise = random.choice(self.noises).to(self.device)
+        snr = random.uniform(range[0], range[1])
+        noisy_signal = denoising_utils.add_noise_with_snr(signal, noise, snr)
+        return noisy_signal
+
+    # This is gonna need conditioner integration
+    def add_noise_with_variable_xi(self, signal, range):
+        noise = random.choice(self.noises).to(self.device)
+        snr = random.uniform(range[0], range[1])
+        self.xi = max(0.35, 0.105 * range[0] - 0.7)
+        noisy_signal = denoising_utils.add_noise_with_snr(signal, noise, snr)
+        return noisy_signal
+
+    ########################
+    # PREDICTION FUNCTIONS #
+    ########################
+
+    def predict_gramophone_denoising(self, y_noisy, gain):
+        degradation = lambda x: self.add_noise(x, gain)
+        if self.rid:
+            res, denoised, t = self.predict_conditional(y_noisy, degradation)
+            return res, denoised, t
+        else:
+            #res = self.predict_conditional(y_noisy, degradation)
+            #return res
+            return self.predict_conditional(y_noisy, degradation)
+
+    def predict_gramophone_denoising_with_snr(self, y_noisy, range):
+        degradation = lambda x: self.add_noise_with_snr(x, range)
+        if self.rid:
+            res, denoised, t = self.predict_conditional(y_noisy, degradation)
+            return res, denoised, t
+        else:
+            #res = self.predict_conditional(y_noisy, degradation)
+            #return res
+            return self.predict_conditional(y_noisy, degradation)
+
+    # This is gonna need conditioner integration
+    def predict_gramophone_denoising_with_variable_xi(self, y_noisy, range):
+        degradation = lambda x: self.add_noise_with_variable_xi(x, range)
+        if self.rid:
+            res, denoised, t = self.predict_conditional(y_noisy, degradation)
+            return res, denoised, t
+        else:
+            #res = self.predict_conditional(y_noisy, degradation)
+            #return res
+            return self.predict_conditional(y_noisy, degradation)
     

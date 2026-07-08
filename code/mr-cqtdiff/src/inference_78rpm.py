@@ -34,7 +34,7 @@ def _main(args):
     #############
 
     # it prints some logs.
-    network = hydra.utils.instantiate(args.network)
+    network = hydra.utils.instantiate(args.network, device=device)
     network = network.to(device)
 
     #############
@@ -49,7 +49,11 @@ def _main(args):
     ## Tester ##
     ############
 
-    from testing.tester78rpm import Tester78rpm
+    if args.tester.tester._target_ == "testing.tester78rpm.Tester78rpm":
+        from testing.tester78rpm import Tester78rpm
+    else:
+        raise ValueError(f"tester target {args.tester.tester._target_} not recognized")
+    
     tester = Tester78rpm(args=args, network=network, diff_params=diff_params, device=device)
 
     # Loading checkpoint
@@ -75,7 +79,7 @@ def _main(args):
     if args.debug == True:
         print(f"Noisy audio setup")
         print(f"Output length: {tester.out_len}")
-        print(f"Number of blocks to denoise: {len(tester.noisy_audio_blocks.dataset)}")
+        print(f"Number of blocks: {len(tester.noisy_audio_blocks.dataset)}")
         print(f"Blocks' shape: {tester.noisy_audio_blocks.dataset.blocks.shape}")
 
     # Perform inference
