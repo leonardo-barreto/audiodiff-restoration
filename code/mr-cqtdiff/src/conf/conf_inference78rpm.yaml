@@ -5,6 +5,7 @@ defaults:
   - diff_params: edm
 
 debug: True
+gpu: 1
 
 ### (NOT USED YET) ###
 # subjective test args
@@ -18,9 +19,9 @@ audio_len: 65536 # block len actually -- had to reuse this name because of eloi 
 sample_rate: 44100
 
 # audio args
-noisy_audio: 
-output_file: 
-block_duration: 1.4860770975056689342403628117914  #1.0 # Block (in seconds) for denoising
+noisy_audio: #overriden in bash call script
+output_file: #overriden in bash call script
+block_duration: 1.4860770975056689342403628117914 # Block (in seconds) for denoising
 overlap_duration: 0.25 # Overlap (in seconds) between blocks
 
 # network args
@@ -37,16 +38,13 @@ checkpoint: "len1_5-bat5-lr2-sched2_3-diffBern-3090-1600000.pt"
   #fmin: 150 #no worries, not used
   #use_norm: False
 
-device: "cuda"
-gpu: 1
-
 tester:
   tester:
     _target_: "testing.tester78rpm.Tester78rpm"
+
   sampler:
     _target_: "sampling.SamplerNew.Sampler78rpm"
-  conditioner:
-    _target_: 'sampling.conditioners.Dummy.Dummy'
+
   sampling_params:
     same_as_training: False #if true, the sampling parameters will be the same as the ones used for training (sigma_data, sigma_min, sigma_max and rho)
     sde_hp:
@@ -59,18 +57,19 @@ tester:
     Stmin: 0
     Stmax: 100 # if bigger than sigma_max, not used (mrcqtdiff def=10)
     order: 2 # order of the sampler (1 or 2)
-    T: 51 # number of discretization steprs
+    #T: 51 # number of discretization steprs
+    T: 140 # number of discretization steprs
     schedule: "edm" #"log": log schedule using the parameters in sampling_params
 
-inference:
+conditioner:
+  _target_: "sampling.conditioners.RecGuidance.RecGuidance"
   infer_xi: False
-  xi:   # default 0.35
+  xi: 0.35 # default 0.35
+  max_thresh_grads: 1
+
+inference:
   use_gain: True
   use_range: False
-  order: 2  
-  data_consistency: False
-  T: 140
-  max_thresh_grads: 1
   denoising:
     noise_files_path: "/home/leonardo.barreto/Documents/pesquisa/mestrado/audiodiff-restoration-project/datasets/noise-dataset/gramophone/train/no-fade"
     crossfade_duration: 0.1

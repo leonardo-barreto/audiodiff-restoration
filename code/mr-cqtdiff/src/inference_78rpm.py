@@ -40,6 +40,8 @@ def _main(args):
     #############
     ## Sampler ##
     #############
+    #from sampling.SamplerNew import Sampler78rpm
+    #sampler = Sampler78rpm(args, network, diff_params)
 
     #################
     ## Conditioner ##

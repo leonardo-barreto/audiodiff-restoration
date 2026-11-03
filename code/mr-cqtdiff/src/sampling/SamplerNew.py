@@ -34,7 +34,16 @@ class SamplerNew():
 
         # Possibility to set conditioner from outside, otherwise instantiate them from the tester config
         if conditioner is None:
-            self.conditioner = hydra.utils.instantiate(self.args.tester.conditioner, self.args)
+            self.conditioner = hydra.utils.instantiate(self.args.conditioner, self.args, self.model, self.diff_params)
+        else:
+            self.conditioner = conditioner
+
+    ##########################################
+    # UTILITIES
+    ##########################################
+    
+    def set_device(self, device):
+        self.device = device
 
     ##########################################
     # NOISE SCHEDULE
@@ -130,10 +139,11 @@ class SamplerNew():
         if self.conditioner is None:
             return score
         else:
-            requires_grad = getattr(self.conditioner, "requires_grad", False)
+            requires_grad = getattr(self.conditioner, "requires_grad")
 
             if requires_grad:
                 with torch.enable_grad():
+                    # copy of x with gradients enabled, so we can compute the conditioning term
                     x_grad = x.detach().requires_grad_(True)
                     x_den_grad = self.get_Tweedie_estimate(x_grad, t_i)
                     cond_score = self.conditioner.conditioning_term(x_grad, x_den_grad, t_i, y, degradation)

@@ -2,11 +2,11 @@
 
 source /home/leonardo.barreto/Documents/pesquisa/mestrado/audiodiff-restoration-project/python-envs/venv-mrcqtdiff/bin/activate
 
-#test_script=test_unconditional.py
-test_script=test_conditional.py
+test_script=test_unconditional.py
+#test_script=test_conditional.py
 
-#conf=conf_MAESTRO.yaml
-conf=conf_SamplerTesting.yaml
+conf=conf_MAESTRO.yaml
+#conf=conf_SamplerTesting.yaml
 
 name="MR-CQTDiff_44k_MAESTRO"
 PATH_EXPERIMENT=experiments/$name
@@ -22,7 +22,8 @@ python $test_script --config-name=$conf \
   network=$network \
   model_dir=$PATH_EXPERIMENT \
   tester.checkpoint=$ckpt \
-  #tester.unconditional.num_samples=1 \
+  #network.audio_len=44100 \
+  #tester.unconditional.audio_len=44100 \
   #tester.overriden_name="2D_OpenSinger_HD_CQT_waveform_IS2_100k_v2" \
 
 

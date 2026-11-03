@@ -45,7 +45,10 @@ class Tester78rpm(Tester): # Inheritance just to use the base methods, such as l
 
         # Possibility to set sampler from outside, otherwise instantiate them from the tester config
         if sampler is None:
-            self.sampler = hydra.utils.instantiate(args.tester.sampler, self.args, self.network, self.diff_params)
+            self.sampler = hydra.utils.instantiate(self.args.tester.sampler, self.args, self.network, self.diff_params)
+        else:
+            self.sampler = sampler
+        self.sampler.set_device(self.device)
     
     def inference(self):
 
