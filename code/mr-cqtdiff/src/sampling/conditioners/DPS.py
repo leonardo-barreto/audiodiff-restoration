@@ -2,36 +2,9 @@ import torch
 from typing import Optional
 
 import utils.audio_restoration.power_estimation_utils as power_estimation_utils
+from conditioners.BaseConditioner import BaseConditioner
 
-class BaseConditioner():
-
-    def __init__(self, args, model, diff_params, requires_grad=False):
-
-        self.args = args
-        self.model = model.eval() #is it ok to do this here?
-        self.diff_params=diff_params
-        self.requires_grad = requires_grad
-
-    def get_Tweedie_estimate(self, x, t_i):
-
-        if x.ndim==2:
-            x_hat = self.diff_params.denoiser(x.unsqueeze(1), self.model, t_i).squeeze(1)
-        elif x.ndim==3:
-            x_hat = self.diff_params.denoiser(x, self.model, t_i)
-
-        return x_hat
-
-    def Tweedie2score(self, tweedie, xt, t):
-        return self.diff_params.Tweedie2score(tweedie, xt, t)
-
-    def score2Tweedie(self, score, xt, t):
-        return self.diff_params.score2Tweedie(score, xt, t)
-
-    def conditioning_term(self, x, x_den, t_i, y, degradation):
-        """Return a score correction term with the same shape as x."""
-        raise NotImplementedError
-
-class RecGuidance(BaseConditioner):
+class DPS(BaseConditioner):
 
     def __init__(self, args, model, diff_params, infer_xi=None, xi=None, max_thresh_grads=None, requires_grad=True):
         super().__init__(args, model, diff_params, requires_grad)
@@ -40,7 +13,7 @@ class RecGuidance(BaseConditioner):
         self.infer_xi = infer_xi
         #self.threshold_on_grads = self.args.conditioner.max_thresh_grads if max_thresh_grads is None else max_thresh_grads
         self.threshold_on_grads = max_thresh_grads
-        print(f"Conditioner: RecGuidance with infer_xi={self.infer_xi} and threshold_on_grads={self.threshold_on_grads}")
+        print(f"Conditioner: DPS with infer_xi={self.infer_xi} and threshold_on_grads={self.threshold_on_grads}")
 
         if self.infer_xi == True:
             floor, ceil = power_estimation_utils.get_floor_and_ceil_powers(self.args)

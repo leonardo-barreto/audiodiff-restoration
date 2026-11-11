@@ -16,20 +16,9 @@ base_path=/home/leonardo.barreto/Documents/pesquisa/mestrado/audiodiff-restorati
 #noisy_audio=$base_path/sampling_testing/noisy_sample.wav
 #output_file=$base_path/RG_test_output.wav
 noisy_audio=$base_path/panel-1/noisy/midsum_short.wav
-output_file=$base_path/panel-1/restored/midsum_short_MRCQTDiff_T50.wav
-
+output_file=$base_path/panel-1/restored/midsum_short_MRCQTDiff_T140.wav
 
 mkdir -p $PATH_EXPERIMENT
-
-python inference_78rpm.py --config-name=$conf \
-  network=$network \
-  checkpoint=$ckpt \
-  model_dir=$PATH_EXPERIMENT \
-  noisy_audio=$noisy_audio \
-  output_file=$output_file \
-  tester.sampling_params.T=50
-
-output_file=$base_path/panel-1/restored/midsum_short_MRCQTDiff_T140.wav
 
 python inference_78rpm.py --config-name=$conf \
   network=$network \

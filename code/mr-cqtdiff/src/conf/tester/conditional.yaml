@@ -4,7 +4,7 @@ tester:
   _target_: 'testing.tester_DummyConditioner.TesterDummyConditioner'
 
 sampler:
-  _target_: 'sampling.SamplerNew.SamplerNew'
+  _target_: 'sampling.BaseSampler.BaseSampler'
 
 # CONDITIONAL SAMPLING
 modes: ["conditional"] #modes to test
