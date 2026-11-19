@@ -1,0 +1,4 @@
+_target_: "sampling.conditioners.DPS.DPS"
+infer_xi: False
+xi: 0.35
+max_thresh_grads: 1

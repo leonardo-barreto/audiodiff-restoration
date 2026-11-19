@@ -1,12 +1,12 @@
 # audio len and sr as needed in moliner's code
-audio_len: 44100 # block len actually -- had to reuse this name because of eloi moliner's code
+audio_len: 65536 #66150 # block len actually -- had to reuse this name because of eloi moliner's code
 sample_rate: 44100
 
 # experiment args
 noisy_audio: 
 output_file: 
 crossfade_duration: 0.1
-block_duration: 1.0
+block_duration: 1.4860770975056689342403628117914 #1.5
 overlap_duration: 0.25
 
 # subjective test args
@@ -17,7 +17,7 @@ testing:
 
 #network args
 device: 
-checkpoint: "/home/leonardo.barreto/Documents/pesquisa/mestrado/weights/weights-2303999.pt"
+checkpoint: "/home/leonardo.barreto/Documents/pesquisa/mestrado/audiodiff-restoration-project/weights/weights-2303999.pt"
 cqt:
   binsoct: 64 #important
   numocts: 7  #important
@@ -27,7 +27,7 @@ cqt:
 
 # diff params
 diffusion_parameters:
-  sigma_data: 0.057 #default for maestro
+  sigma_data: 0.063 #0.057 #default for maestro
   sigma_min: 1e-6 # 1e-6 in previous experiments 1e-4 in inference
   sigma_max: 10 # 10 in previous experiments 1 in inference
   P_mean: -1.2 #what is this for?
@@ -41,7 +41,7 @@ diffusion_parameters:
 
 inference:
   infer_xi: False
-  xi:   # default 0.35
+  xi:  # default 0.35
   use_gain: True
   use_range: False
   order: 2  
@@ -49,7 +49,7 @@ inference:
   T: 140
   max_thresh_grads: 1
   denoising:
-    noise_files_path: "/home/leonardo.barreto/Documents/pesquisa/mestrado/noise-dataset/gramophone/train/no-fade"
+    noise_files_path: "/home/leonardo.barreto/Documents/pesquisa/mestrado/audiodiff-restoration-project/datasets/noise-dataset/gramophone/train/no-fade"
     crossfade_duration: 0.1
     power_window_size: 8192
   noise_gain: # not used unless use_range = False and use_gain = False --> fix this patch later (26/03/2024)

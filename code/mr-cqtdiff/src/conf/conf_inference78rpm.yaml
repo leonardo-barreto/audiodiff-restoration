@@ -3,6 +3,7 @@ defaults:
   - network: MR-cqtdiff_44k
   - exp: 44kHz_1_5s
   - diff_params: edm
+  - conditioner: dps
 
 debug: True
 gpu: 1
@@ -60,12 +61,6 @@ tester:
     #T: 51 # number of discretization steprs
     T: 140 # number of discretization steprs
     schedule: "edm" #"log": log schedule using the parameters in sampling_params
-
-conditioner:
-  _target_: "sampling.conditioners.DPS.DPS"
-  infer_xi: False
-  xi: 0.35 # default 0.35
-  max_thresh_grads: 1
 
 inference:
   use_gain: True

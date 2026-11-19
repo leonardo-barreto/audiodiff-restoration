@@ -1,71 +1,122 @@
 import torch
-from typing import Optional
 
-from utils.linalg import conjugate_gradient, gmres
-
+from utils.linalg import gmres
 import utils.audio_restoration.power_estimation_utils as power_estimation_utils
-from conditioners.BaseConditioner import BaseConditioner
+from .BaseConditioner import BaseConditioner
+
 
 class MomentMatching(BaseConditioner):
+    """Moment Matching conditioning for the EDM score parameterization."""
 
-    def __init__(self, args, model, diff_params, maxiter=1, infer_xi=None, xi=None, max_thresh_grads=None, requires_grad=True):
+    def __init__(
+        self,
+        args,
+        model,
+        diff_params,
+        maxiter=1,
+        infer_xi=None,
+        xi=None,
+        max_thresh_grads=None,
+        measurement_noise_sigma=0.0,
+        requires_grad=True,
+    ):
         super().__init__(args, model, diff_params, requires_grad)
 
-        #self.infer_xi = self.args.conditioner.infer_xi if infer_xi is None else infer_xi
         self.infer_xi = infer_xi
-        #self.threshold_on_grads = self.args.conditioner.max_thresh_grads if max_thresh_grads is None else max_thresh_grads
         self.threshold_on_grads = max_thresh_grads
-        print(f"Conditioner: MomentMatching with infer_xi={self.infer_xi} and threshold_on_grads={self.threshold_on_grads}")
-        
         self.maxiter = maxiter
+        self.measurement_noise_sigma = measurement_noise_sigma
 
-        if self.infer_xi == True:
-            floor, ceil = power_estimation_utils.get_floor_and_ceil_powers(self.args)
+        if self.maxiter < 1:
+            raise ValueError("maxiter must be positive")
+        if self.measurement_noise_sigma < 0:
+            raise ValueError("measurement_noise_sigma must be non-negative")
+
+        if self.infer_xi:
+            floor, _ = power_estimation_utils.get_floor_and_ceil_powers(self.args)
             self.xi = power_estimation_utils.get_xi_estimate(floor)
             print(f"XI Estimate: {self.xi}")
         else:
-            #self.xi = self.args.conditioner.xi if xi is None else xi
             self.xi = xi
             print(f"XI Set: {self.xi}")
 
-    # TO AGENT: THIS FUNCTION WAS BROUGHT FROM MMPS-BENCHMARK CODE AS-IS, IT NEEDS TO BE ADJUSTED TO MATCH MY CODE'S CONVENTIONS, PARAMETERS AND FUNCTIONALITY
+        print(
+            "Conditioner: MomentMatching "
+            f"with maxiter={self.maxiter}, xi={self.xi}, "
+            f"measurement_noise_sigma={self.measurement_noise_sigma}"
+        )
+
     @torch.no_grad()
-    def conditioning_term(self, x_prev, x_t, x_0_hat, measurement, **kwargs):
-        x_s, x_t, y = x_t, x_prev, measurement
-
-        alpha_s = kwargs["alpha"]
-        alpha_t = kwargs["alpha_prev"]
-        scale = kwargs["scale"]
-
-        def A(x):
-            return self.operator.forward(x, **kwargs)
+    def conditioning_term(self, x, x_den, t_i, y, degradation):
+        # Validate the degradation interface required by the measurement-space solve.
+        if not all(hasattr(degradation, name) for name in ("forward", "jvp", "vjp")):
+            raise TypeError("MomentMatching requires a degradation with forward, jvp, and vjp")
 
         with torch.enable_grad():
-            y_hat = A(x_0_hat)
+            # Evaluate the fixed-step affine degradation and form the measurement residual.
+            y_hat = degradation.forward(x_den)
+            error = y - y_hat
 
-        def At(y):
-            return torch.autograd.grad(y_hat, x_0_hat, y, retain_graph=True)[0]
+            # In EDM, x_t = x_0 + sigma_t * epsilon, so the covariance coefficient
+            # corresponding to the benchmark's var_t is sigma_t^2.
+            diffusion_variance = t_i.square()
 
-        var_t = (1 - alpha_t) / torch.sqrt(alpha_t)
-        var_y = self.noiser.sigma**2
+            def cov_x_xt(vector):
+                # Propagate a measurement-space vector through Cov(x_0, x_t).
+                with torch.enable_grad():
+                    return diffusion_variance * torch.autograd.grad(
+                        x_den,
+                        x,
+                        vector,
+                        retain_graph=True,
+                    )[0]
 
-        def cov_x_xt(v):
-            return var_t * torch.autograd.grad(x_0_hat, x_t, v, retain_graph=True)[0]
+            def cov_y_xt(vector):
+                # Apply the measurement covariance operator used by GMRES.
+                with torch.enable_grad():
+                    adjoint = degradation.vjp(x_den, vector)
+                    propagated = cov_x_xt(adjoint)
+                    return (
+                        self.measurement_noise_sigma**2 * vector
+                        + degradation.jvp(x_den, propagated)
+                    )
 
-        def cov_y_xt(v):
-            return var_y * v + A(cov_x_xt(At(v)))
+            # Avoid solving a zero-residual system and return no conditioning signal.
+            if torch.count_nonzero(error) == 0:
+                return torch.zeros_like(x)
 
-        error = y - y_hat
-        grad = gmres(
-            A=cov_y_xt,
-            b=error,
-            maxiter=self.maxiter,
-        )
-        grad = At(grad)
-        grad = torch.autograd.grad(x_0_hat, x_t, grad)[0]
-        grad = var_t * grad
+            # Solve Cov(y, x_t) * v = y - y_hat in measurement space.
+            measurement_gradient = gmres(
+                A=cov_y_xt,
+                b=error,
+                maxiter=self.maxiter,
+            )
 
-        x_s = x_s + scale * grad
+            # Pull the solved measurement direction back through the degradation
+            # and the Tweedie estimate to obtain a latent-space gradient.
+            latent_gradient = degradation.vjp(x_den, measurement_gradient)
+            gradient = torch.autograd.grad(
+                x_den,
+                x,
+                latent_gradient,
+            )[0]
+            # Not needed if returning a score correction instead of updating the diffusion state.
+            #gradient = diffusion_variance * gradient
 
-        return x_s, torch.linalg.vector_norm(error)
+        # Apply the same xi-based normalization used by DPS.
+        normguide = torch.linalg.vector_norm(gradient) / self.args.audio_len**0.5
+        scale = self.xi / (normguide * t_i + 1e-6)
 
+        #quick manual override
+        #scale = self.xi
+
+        # Retain DPS's gradient clipping heuristic before scaling the correction.
+        if self.threshold_on_grads is not None and self.threshold_on_grads > 0:
+            gradient = torch.clip(
+                gradient,
+                min=-self.threshold_on_grads,
+                max=self.threshold_on_grads,
+            )
+
+        # Return a score correction; unlike MMPS, do not update the diffusion state.
+        return scale * gradient

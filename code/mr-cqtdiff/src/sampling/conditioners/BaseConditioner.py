@@ -28,5 +28,9 @@ class BaseConditioner():
         return self.diff_params.score2Tweedie(score, xt, t)
 
     def conditioning_term(self, x, x_den, t_i, y, degradation):
-        """Return a score correction term with the same shape as x."""
+        """Return a score correction term with the same shape as x.
+
+        Degradation objects are callable and may additionally expose ``jvp`` and
+        ``vjp`` for conditioning methods that solve in measurement space.
+        """
         raise NotImplementedError

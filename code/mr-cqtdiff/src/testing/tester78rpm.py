@@ -54,11 +54,6 @@ class Tester78rpm(Tester): # Inheritance just to use the base methods, such as l
 
         window_size = self.args.inference.denoising.power_window_size
         floor, ceil = power_estimation_utils.get_floor_and_ceil_powers(self.args)
-
-        # THIS NEEDS TO CHANGE TO THE CONDITIONER
-        #if self.args.inference.infer_xi == True:
-            #sampler.xi = power_estimation_utils.get_xi_estimate(floor)
-            #print(f"XI Estimate: {sampler.xi}")
         
         # Loop through the blocks and denoise them
         denoised_blocks = []

@@ -168,6 +168,12 @@ class BaseSampler():
 
     def step(self, x_i, t_i, t_iplus1, gamma_i, y=None, degradation=None):
 
+        # Set up the degradation realization at the beginning of each step.
+        if degradation is not None:
+            setup_degradation = getattr(degradation, "setup_degradation", None)
+            if setup_degradation is not None:
+                setup_degradation(step=self.step_counter, x_i=x_i, t_i=t_i)
+
         with torch.no_grad():
             x_hat, t_hat = self.stochastic_timestep(x_i, t_i, gamma_i, self.Snoise)
             score = self.get_score(x_hat, t_hat, y, degradation)

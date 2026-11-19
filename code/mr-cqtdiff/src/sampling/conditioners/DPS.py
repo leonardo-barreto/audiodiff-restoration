@@ -2,7 +2,7 @@ import torch
 from typing import Optional
 
 import utils.audio_restoration.power_estimation_utils as power_estimation_utils
-from conditioners.BaseConditioner import BaseConditioner
+from .BaseConditioner import BaseConditioner
 
 class DPS(BaseConditioner):
 
@@ -28,7 +28,7 @@ class DPS(BaseConditioner):
         #x.requires_grad_()
         #x_hat = self.diff_params.denoiser(x, self.model, t_i.unsqueeze(-1))
         
-        den_rec = degradation(x_den)
+        den_rec = degradation.forward(x_den) if hasattr(degradation, "forward") else degradation(x_den)
 
         if len(y.shape) == 3:
             dim = (1, 2)

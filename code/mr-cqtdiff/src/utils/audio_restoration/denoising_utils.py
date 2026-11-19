@@ -68,6 +68,20 @@ def add_noise_with_gain(
     return (audio + gain * noise) / 2
 
 
+def gramophone_degradation_jvp(
+    audio: torch.Tensor, vector: torch.Tensor
+) -> torch.Tensor:
+    """Apply the Jacobian of the affine gramophone degradation to a vector."""
+    return vector / 2
+
+
+def gramophone_degradation_vjp(
+    audio: torch.Tensor, vector: torch.Tensor
+) -> torch.Tensor:
+    """Apply the transpose Jacobian of the affine gramophone degradation."""
+    return vector / 2
+
+
 if __name__ == "__main__":
     # tests, as there is no test suite in moliner's original code
 
